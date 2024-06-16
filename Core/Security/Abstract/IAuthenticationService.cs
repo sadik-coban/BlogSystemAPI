@@ -12,5 +12,6 @@ public interface IAuthenticationService
 {
     Task<Result<TokenResponse>> CreateTokenAsync(LoginRequest loginRequest);
     Task<Result<TokenResponse>> CreateTokenByRefreshTokenAsync(string refreshToken);
-    Task<Result<NoContent>> RevokeRefreshToken(string refreshToken);
+    Task<Result<NoContent>> RevokeRefreshTokenAsync(string refreshToken);
+    Task<Result<NoContent>> RevokeAllRefreshTokensAsync(Guid userId, string refreshToken);
 }

@@ -3,6 +3,7 @@ using Core.ResultObjects;
 using Core.Security;
 using Core.Security.Abstract;
 using Core.Security.Requests;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 
@@ -27,6 +28,30 @@ public class AuthController : CustomControllerBase
             var tokenResult = await _authenticationService.CreateTokenByRefreshTokenAsync(refreshToken);
             if (tokenResult.IsSuccessed)
             {
+                if(isHttpOnly == true)
+                {
+                    Response.Cookies.Append("RefreshToken",
+                    tokenResult.Data.RefreshToken,
+                    new CookieOptions
+                    {
+                        Expires = tokenResult.Data.RefreshTokenExpiration,
+                        HttpOnly = true,
+                        Secure = true,
+                        SameSite = SameSiteMode.None
+                    }
+                    );
+                    Response.Cookies.Append("AccessToken",
+                    tokenResult.Data.AccessToken,
+                    new CookieOptions
+                    {
+                        Expires = tokenResult.Data.AccessTokenExpiration,
+                        HttpOnly = true,
+                        Secure = true,
+                        SameSite = SameSiteMode.None
+                    }
+                    );
+                    return StatusCode(200);
+                }
                 return CreateResult(tokenResult);
             }
         }
@@ -130,6 +155,7 @@ public class AuthController : CustomControllerBase
         return CreateResult(await _authenticationService.CreateTokenByRefreshTokenAsync(refreshToken));
     }
     [HttpPost]
+
     public async Task<IActionResult> RevokeRefreshToken(string? refreshToken)
     {
         Result<NoContent> revokeResult;
@@ -140,7 +166,7 @@ public class AuthController : CustomControllerBase
             {
                 return Unauthorized();
             }
-            revokeResult = await _authenticationService.RevokeRefreshToken(refreshToken);
+            revokeResult = await _authenticationService.RevokeRefreshTokenAsync(refreshToken);
             if (!revokeResult.IsSuccessed)
             {
                 return CreateResult(revokeResult);
@@ -149,13 +175,37 @@ public class AuthController : CustomControllerBase
             Response.Cookies.Delete("RefreshToken");
             return CreateResult(revokeResult);
         }
-        revokeResult = await _authenticationService.RevokeRefreshToken(refreshToken);
+        revokeResult = await _authenticationService.RevokeRefreshTokenAsync(refreshToken);
         return CreateResult(revokeResult);
     }
-    //[HttpPost]
-    //public string GetRefreshFromCookie(string? refreshToken)
-    //{
-    //    refreshToken = HttpContext.Request.Cookies["RefreshToken"];
-    //    return refreshToken;
-    //}
+
+    [HttpPost]
+
+    public async Task<IActionResult> RevokeAllRefreshToken(string? refreshToken)
+    {
+        Result<NoContent> revokeResult;
+        if (refreshToken == null)
+        {
+            refreshToken = HttpContext.Request.Cookies["RefreshToken"];
+            if (refreshToken == null)
+            {
+                return Unauthorized();
+            }
+            revokeResult = await _authenticationService.RevokeAllRefreshTokensAsync(UserId!.Value, refreshToken);
+            if (!revokeResult.IsSuccessed)
+            {
+                return CreateResult(revokeResult);
+            }
+            Response.Cookies.Delete("AccessToken");
+            Response.Cookies.Delete("RefreshToken");
+            return CreateResult(revokeResult);
+        }
+        revokeResult = await _authenticationService.RevokeAllRefreshTokensAsync(UserId!.Value, refreshToken);
+        return CreateResult(revokeResult);
+    }
+    [HttpPost]
+    public Guid GetRefreshFromCookie()
+    {
+        return UserId!.Value;
+    }
 }

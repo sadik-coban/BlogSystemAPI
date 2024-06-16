@@ -82,7 +82,7 @@ public class AuthenticationService : IAuthenticationService
         return Result<TokenResponse>.Success(tokenDto, 201);
     }
 
-    public async Task<Result<NoContent>> RevokeRefreshToken(string refreshToken)
+    public async Task<Result<NoContent>> RevokeRefreshTokenAsync(string refreshToken)
     {
         var existRefreshToken = await _userRefreshTokenService
             .Where(x => x.Code == refreshToken)
@@ -93,6 +93,22 @@ public class AuthenticationService : IAuthenticationService
         }
         _userRefreshTokenService.Remove(existRefreshToken);
         await _unitOfWork.CommitAsync();
+        return Result<NoContent>.Success(201);
+    }
+
+    public async Task<Result<NoContent>> RevokeAllRefreshTokensAsync(Guid userId, string refreshToken)
+    {
+        var existRefreshToken = await _userRefreshTokenService
+            .Where(x => x.Code == refreshToken)
+            .SingleOrDefaultAsync();
+        if (existRefreshToken == null)
+        {
+            return Result<NoContent>.Fail("Refresh token bulunamadı", 404);
+        }
+        var existRefreshTokens = await _userRefreshTokenService
+            .Where(x => x.ApplicationUserId == userId)
+            .ExecuteDeleteAsync();
+
         return Result<NoContent>.Success(201);
     }
 }
