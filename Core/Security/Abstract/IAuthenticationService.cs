@@ -18,6 +18,8 @@ public interface IAuthenticationService
     Task<Result<TokenResponse>> CreateTokenByRefreshTokenAsync(string refreshToken);
     Task<Result<NoContent>> RevokeRefreshTokenAsync(string refreshToken);
     Task<Result<NoContent>> RevokeAllRefreshTokensAsync(Guid userId, string refreshToken);
+    Task<Result<NoContent>> RevokeAllRefreshTokensExceptThisAsync(Guid userId, string refreshToken);
+    Task<Result<NoContent>> RevokeAllRefreshTokensWithoutValidationAsync(Guid userId);
     Task<IdentityResult> ChangePasswordAsync(ChangePasswordRequest model, ClaimsPrincipal User);
     Task<IdentityResult> ConfirmEmailAsync(Guid id, string token);
     Task<IdentityResult> SendPasswordResetLinkAsync(ApplicationUser user, string url);

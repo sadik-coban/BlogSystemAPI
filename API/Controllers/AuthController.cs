@@ -1,5 +1,6 @@
 ﻿using Core.Helpers;
 using Core.ResultObjects;
+using Core.Security;
 using Core.Security.Abstract;
 using Core.Security.Concrete;
 using Core.Security.Requests;
@@ -217,8 +218,17 @@ public class AuthController : CustomControllerBase
 
     [HttpPost]
     [Authorize]
-    public async Task<IActionResult> ChangePassword(ChangePasswordRequest model)
+    public async Task<IActionResult> ChangePassword(ChangePasswordRequest model, string? refreshToken)
     {
+        if(refreshToken == null)
+        {
+            refreshToken = HttpContext.Request.Cookies["RefreshToken"];
+        }
+        var revokeResult = await _authenticationService.RevokeAllRefreshTokensExceptThisAsync(UserId!.Value, refreshToken);
+        if (!revokeResult.IsSuccessed)
+        {
+            return CreateResult(revokeResult);
+        }
         return CreateResult(await _authenticationService.ChangePasswordAsync(model,User));
     }
 
@@ -235,17 +245,24 @@ public class AuthController : CustomControllerBase
         var token = await _tokenService.GeneratePasswordResetTokenAsync(user);
         var url = Url.Action(nameof(ResetPassword), "Auth", new { id = user.Id, token }, Request.Scheme); //Create React Page and put page url to this Url
         await _authenticationService.SendPasswordResetLinkAsync(user, url);
-        return Ok(token);                        //test purpose!
+        return Ok();                        
     }
 
     [HttpPost]
     public async Task<IActionResult> ResetPassword(CreateNewPasswordRequest model)
     {
         await _authenticationService.ResetPasswordAsync(model);
+        var revokeResult = await _authenticationService.RevokeAllRefreshTokensWithoutValidationAsync(UserId!.Value);
+        if (!revokeResult.IsSuccessed)
+        {
+            return CreateResult(revokeResult);
+        }
+        Response.Cookies.Delete("AccessToken");
+        Response.Cookies.Delete("RefreshToken");
         return Ok();            
     }
 
-    [HttpPost]
+    [HttpGet]
     [Authorize]
     public async Task<IActionResult> SendEmailChangeLink(string email)
     {
@@ -260,6 +277,13 @@ public class AuthController : CustomControllerBase
     public async Task<IActionResult> ChangeEmailAndUserName(Guid id, string email, string token)
     {
         await _authenticationService.ChangeEmailAndUserNameAsync(id, email, token);
+        var revokeResult = await _authenticationService.RevokeAllRefreshTokensWithoutValidationAsync(UserId!.Value);
+        if (!revokeResult.IsSuccessed)
+        {
+            return CreateResult(revokeResult);
+        }
+        Response.Cookies.Delete("AccessToken");
+        Response.Cookies.Delete("RefreshToken");
         return Ok();
     }
 
