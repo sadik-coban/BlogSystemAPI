@@ -10,4 +10,7 @@ namespace Core.Security.Abstract;
 public interface ITokenService
 {
     Task<TokenResponse> CreateTokenAsync(ApplicationUser applicationUser);
+    Task<string> GenerateEmailConfirmationTokenAsync(ApplicationUser user);
+    Task<string> GeneratePasswordResetTokenAsync(ApplicationUser user);
+    Task<string> GenerateEmailChangeTokenAsync(ApplicationUser user, string newEmail);
 }

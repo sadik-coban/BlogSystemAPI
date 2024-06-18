@@ -1,11 +1,10 @@
 ﻿using Core.Helpers;
 using Core.ResultObjects;
-using Core.Security;
 using Core.Security.Abstract;
+using Core.Security.Concrete;
 using Core.Security.Requests;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
 
 namespace API.Controllers;
 
@@ -14,10 +13,13 @@ namespace API.Controllers;
 public class AuthController : CustomControllerBase
 {
     private readonly IAuthenticationService _authenticationService;
-
-    public AuthController(IAuthenticationService authenticationService)
+    private readonly IUserService _userService;
+    private readonly ITokenService _tokenService;
+    public AuthController(IAuthenticationService authenticationService, ITokenService tokenService, IUserService userService)
     {
         _authenticationService = authenticationService;
+        _tokenService = tokenService;
+        _userService = userService;
     }
 
     [HttpPost]
@@ -25,6 +27,11 @@ public class AuthController : CustomControllerBase
     {
         if (refreshToken != null)
         {
+            var signInResult = await _authenticationService.CheckPasswordSignInAsync(loginDto);
+            if(!signInResult.Succeeded)
+            {
+                return Unauthorized();
+            }
             var tokenResult = await _authenticationService.CreateTokenByRefreshTokenAsync(refreshToken);
             if (tokenResult.IsSuccessed)
             {
@@ -58,6 +65,11 @@ public class AuthController : CustomControllerBase
         refreshToken = HttpContext.Request.Cookies["RefreshToken"];
         if (refreshToken != null)
         {
+            var signInResult = await _authenticationService.CheckPasswordSignInAsync(loginDto);
+            if (!signInResult.Succeeded)
+            {
+                return Unauthorized();
+            }
             var tokenResult = await _authenticationService.CreateTokenByRefreshTokenAsync(refreshToken);
             if (tokenResult.IsSuccessed)
             {
@@ -180,7 +192,6 @@ public class AuthController : CustomControllerBase
     }
 
     [HttpPost]
-
     public async Task<IActionResult> RevokeAllRefreshToken(string? refreshToken)
     {
         Result<NoContent> revokeResult;
@@ -203,9 +214,57 @@ public class AuthController : CustomControllerBase
         revokeResult = await _authenticationService.RevokeAllRefreshTokensAsync(UserId!.Value, refreshToken);
         return CreateResult(revokeResult);
     }
+
     [HttpPost]
-    public Guid GetRefreshFromCookie()
+    [Authorize]
+    public async Task<IActionResult> ChangePassword(ChangePasswordRequest model)
     {
-        return UserId!.Value;
+        return CreateResult(await _authenticationService.ChangePasswordAsync(model,User));
     }
+
+    [HttpGet]
+    public async Task<IActionResult> ConfirmEmail(Guid id,string token)
+    {
+        return CreateResult(await _authenticationService.ConfirmEmailAsync(id, token)); //Redirect React page Url if success
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> SendPasswordResetLink(string username)
+    {
+        var user = await _userService.FindByNameAsync(username);
+        var token = await _tokenService.GeneratePasswordResetTokenAsync(user);
+        var url = Url.Action(nameof(ResetPassword), "Auth", new { id = user.Id, token }, Request.Scheme); //Create React Page and put page url to this Url
+        await _authenticationService.SendPasswordResetLinkAsync(user, url);
+        return Ok(token);                        //test purpose!
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> ResetPassword(CreateNewPasswordRequest model)
+    {
+        await _authenticationService.ResetPasswordAsync(model);
+        return Ok();            
+    }
+
+    [HttpPost]
+    [Authorize]
+    public async Task<IActionResult> SendEmailChangeLink(string email)
+    {
+        var user = await _userService.FindByIdAsync(UserId!.Value);
+        var token = await _tokenService.GenerateEmailChangeTokenAsync(user, email);
+        var url = Url.Action(nameof(ChangeEmailAndUserName), "Auth", new { id = user.Id, token, email = email }, Request.Scheme);
+        await _authenticationService.SendEmailChangeLinkAsync(user, email, url);
+        return Ok();
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ChangeEmailAndUserName(Guid id, string email, string token)
+    {
+        await _authenticationService.ChangeEmailAndUserNameAsync(id, email, token);
+        return Ok();
+    }
+
+    //public async Task<IActionResult> RevokeAllRefreshToken(string? refreshToken)
+    //{
+    //    return CreateResult(await _authenticationService.RevokeAllRefreshTokensAsync(UserId!.Value, refreshToken));
+    //}
 }

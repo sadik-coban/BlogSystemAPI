@@ -74,4 +74,20 @@ public class TokenService : ITokenService
         return tokenDto;
     }
 
+    public async Task<string> GenerateEmailConfirmationTokenAsync(ApplicationUser user)
+    {
+        var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+        return token;
+    }
+    public async Task<string> GeneratePasswordResetTokenAsync(ApplicationUser user)
+    {
+        var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+        return token;
+    }
+    public async Task<string> GenerateEmailChangeTokenAsync(ApplicationUser user, string newEmail)
+    {
+        var token = await _userManager.GenerateChangeEmailTokenAsync(user, newEmail);
+        return token;
+    }
+
 }

@@ -1,4 +1,5 @@
 ﻿using Core.ResultObjects;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
@@ -17,5 +18,13 @@ public class CustomControllerBase : ControllerBase
         {
             StatusCode = result.StatusCode
         };
+    }
+    public static IActionResult CreateResult(IdentityResult result)
+    {
+        return new ObjectResult(result);
+    }
+    public static IActionResult CreateResult(Microsoft.AspNetCore.Identity.SignInResult result)
+    {
+        return new ObjectResult(result);
     }
 }
